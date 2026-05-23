@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 10pt; color: #e2e8f0; line-height: 1.5; display: flex; }
+    .sidebar { width: 200px; background: #0f172a; padding: 20px 16px; min-height: 100vh; }
+    .main { flex: 1; background: #fff; color: #1e293b; padding: 24px; }
+    .sidebar h1 { font-size: 16pt; color: #22d3ee; margin-bottom: 4px; font-family: Arial, sans-serif; }
+    .sidebar .contact { font-size: 8pt; color: #94a3b8; margin-bottom: 16px; }
+    .sidebar .contact div { margin-bottom: 3px; }
+    .sidebar .contact a { color: #38bdf8; text-decoration: none; }
+    .sidebar .s-section { margin-bottom: 14px; }
+    .sidebar .s-title { font-size: 8pt; text-transform: uppercase; letter-spacing: 1.5px; color: #22d3ee; margin-bottom: 6px; font-family: Arial, sans-serif; font-weight: 700; }
+    .sidebar .skill-item { font-size: 8.5pt; color: #cbd5e1; margin-bottom: 2px; padding-left: 8px; position: relative; }
+    .sidebar .skill-item::before { content: '>'; position: absolute; left: 0; color: #22d3ee; }
+    .main .section { margin-bottom: 14px; }
+    .main .section-title { font-size: 11pt; font-weight: 700; color: #0f172a; border-bottom: 2px solid #22d3ee; padding-bottom: 3px; margin-bottom: 8px; font-family: Arial, sans-serif; }
+    .summary { font-size: 10pt; color: #475569; font-family: Arial, sans-serif; }
+    .experience-item { margin-bottom: 12px; }
+    .exp-row { display: flex; justify-content: space-between; font-family: Arial, sans-serif; }
+    .exp-title { font-weight: 700; font-size: 10.5pt; }
+    .exp-company { color: #0891b2; }
+    .exp-dates { font-size: 9pt; color: #94a3b8; }
+    .bullets { list-style: none; padding-left: 0; margin-top: 4px; }
+    .bullets li { font-size: 9.5pt; color: #334155; margin-bottom: 2px; padding-left: 14px; position: relative; font-family: Arial, sans-serif; }
+    .bullets li::before { content: '→'; position: absolute; left: 0; color: #22d3ee; }
+    .education-item { font-size: 10pt; margin-bottom: 4px; font-family: Arial, sans-serif; }
+    .project-item { font-size: 9.5pt; margin-bottom: 6px; font-family: Arial, sans-serif; }
+    .project-name { font-weight: 700; color: #0f172a; }
+    .project-tech { font-size: 8.5pt; color: #0891b2; font-family: 'Courier New', monospace; }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h1>{{contact.name}}</h1>
+    <div class="contact">
+      {{#if contact.email}}<div>{{contact.email}}</div>{{/if}}
+      {{#if contact.phone}}<div>{{contact.phone}}</div>{{/if}}
+      {{#if contact.location}}<div>{{contact.location}}</div>{{/if}}
+      {{#if contact.linkedin}}<div><a href="{{contact.linkedin}}">LinkedIn</a></div>{{/if}}
+      {{#if contact.github}}<div><a href="{{contact.github}}">GitHub</a></div>{{/if}}
+    </div>
+    {{#if skills}}
+      {{#if skills.technical.length}}<div class="s-section"><div class="s-title">Tech Stack</div>{{#each skills.technical}}<div class="skill-item">{{this}}</div>{{/each}}</div>{{/if}}
+      {{#if skills.tools.length}}<div class="s-section"><div class="s-title">Tools</div>{{#each skills.tools}}<div class="skill-item">{{this}}</div>{{/each}}</div>{{/if}}
+    {{/if}}
+    {{#if hasCertifications}}<div class="s-section"><div class="s-title">Certs</div>{{#each certifications}}<div class="skill-item">{{this}}</div>{{/each}}</div>{{/if}}
+  </div>
+  <div class="main">
+    {{#if summary}}<div class="section"><div class="section-title">About</div><div class="summary">{{summary}}</div></div>{{/if}}
+    {{#if experience.length}}<div class="section"><div class="section-title">Experience</div>{{#each experience}}<div class="experience-item"><div class="exp-row"><div><span class="exp-title">{{this.title}}</span>{{#if this.company}} · <span class="exp-company">{{this.company}}</span>{{/if}}</div><div class="exp-dates">{{this.dates}}</div></div>{{#if this.bullets.length}}<ul class="bullets">{{#each this.bullets}}<li>{{this}}</li>{{/each}}</ul>{{/if}}</div>{{/each}}</div>{{/if}}
+    {{#if education.length}}<div class="section"><div class="section-title">Education</div>{{#each education}}<div class="education-item"><strong>{{this.degree}}</strong> — {{this.school}} ({{this.year}})</div>{{/each}}</div>{{/if}}
+    {{#if hasProjects}}<div class="section"><div class="section-title">Projects</div>{{#each projects}}<div class="project-item"><span class="project-name">{{this.name}}</span> — {{this.description}}{{#if this.tech.length}}<div class="project-tech">{{join this.tech " | "}}</div>{{/if}}</div>{{/each}}</div>{{/if}}
+  </div>
+</body>
+</html>

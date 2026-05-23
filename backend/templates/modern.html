@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 10pt;
+      color: #1e293b;
+      line-height: 1.5;
+    }
+    .header {
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 3px solid #2563eb;
+    }
+    .header h1 {
+      font-size: 24pt;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    .contact-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 9pt;
+      color: #64748b;
+    }
+    .contact-row a { color: #2563eb; text-decoration: none; }
+    .section { margin-bottom: 16px; }
+    .section-title {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #2563eb;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1.5px solid #e2e8f0;
+    }
+    .summary {
+      font-size: 10pt;
+      color: #475569;
+      background: #f8fafc;
+      padding: 10px 14px;
+      border-left: 3px solid #2563eb;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 14px;
+    }
+    .experience-item { margin-bottom: 14px; }
+    .exp-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 2px;
+    }
+    .exp-title {
+      font-weight: 700;
+      font-size: 10.5pt;
+      color: #0f172a;
+    }
+    .exp-company {
+      font-weight: 500;
+      color: #2563eb;
+    }
+    .exp-dates {
+      font-size: 9pt;
+      color: #94a3b8;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .exp-location {
+      font-size: 8.5pt;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .bullets {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 4px;
+    }
+    .bullets li {
+      font-size: 9.5pt;
+      color: #334155;
+      margin-bottom: 3px;
+      padding-left: 14px;
+      position: relative;
+      line-height: 1.45;
+    }
+    .bullets li::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
+      color: #2563eb;
+      font-size: 9pt;
+    }
+    .skills-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .skill-category {
+      margin-bottom: 8px;
+    }
+    .skill-category-label {
+      font-weight: 600;
+      font-size: 9.5pt;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .skill-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .skill-tag {
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 8.5pt;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #bfdbfe;
+    }
+    .education-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 10pt;
+    }
+    .edu-degree { font-weight: 600; color: #0f172a; }
+    .edu-school { color: #64748b; }
+    .edu-year { color: #94a3b8; font-size: 9pt; }
+    .cert-item, .project-item { margin-bottom: 6px; font-size: 9.5pt; }
+    .project-name { font-weight: 600; color: #0f172a; }
+    .project-tech {
+      font-size: 8.5pt;
+      color: #64748b;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>{{contact.name}}</h1>
+    <div class="contact-row">
+      {{#if contact.email}}<span>📧 {{contact.email}}</span>{{/if}}
+      {{#if contact.phone}}<span>📱 {{contact.phone}}</span>{{/if}}
+      {{#if contact.location}}<span>📍 {{contact.location}}</span>{{/if}}
+      {{#if contact.linkedin}}<a href="{{contact.linkedin}}">🔗 LinkedIn</a>{{/if}}
+      {{#if contact.github}}<a href="{{contact.github}}">💻 GitHub</a>{{/if}}
+    </div>
+  </div>
+
+  {{#if summary}}
+  <div class="section">
+    <div class="section-title">Summary</div>
+    <div class="summary">{{summary}}</div>
+  </div>
+  {{/if}}
+
+  {{#if experience.length}}
+  <div class="section">
+    <div class="section-title">Experience</div>
+    {{#each experience}}
+    <div class="experience-item">
+      <div class="exp-row">
+        <div>
+          <span class="exp-title">{{this.title}}</span>
+          {{#if this.company}}<span class="exp-company"> · {{this.company}}</span>{{/if}}
+        </div>
+        <div class="exp-dates">{{this.dates}}</div>
+      </div>
+      {{#if this.location}}<div class="exp-location">{{this.location}}</div>{{/if}}
+      {{#if this.bullets.length}}
+      <ul class="bullets">
+        {{#each this.bullets}}<li>{{this}}</li>{{/each}}
+      </ul>
+      {{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  {{#if skills}}
+  <div class="section">
+    <div class="section-title">Skills</div>
+    {{#if skills.technical.length}}
+    <div class="skill-category">
+      <div class="skill-category-label">Technical</div>
+      <div class="skill-tags">
+        {{#each skills.technical}}<span class="skill-tag">{{this}}</span>{{/each}}
+      </div>
+    </div>
+    {{/if}}
+    {{#if skills.tools.length}}
+    <div class="skill-category">
+      <div class="skill-category-label">Tools & Platforms</div>
+      <div class="skill-tags">
+        {{#each skills.tools}}<span class="skill-tag">{{this}}</span>{{/each}}
+      </div>
+    </div>
+    {{/if}}
+    {{#if skills.soft.length}}
+    <div class="skill-category">
+      <div class="skill-category-label">Soft Skills</div>
+      <div class="skill-tags">
+        {{#each skills.soft}}<span class="skill-tag">{{this}}</span>{{/each}}
+      </div>
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  {{#if education.length}}
+  <div class="section">
+    <div class="section-title">Education</div>
+    {{#each education}}
+    <div class="education-item">
+      <div>
+        <span class="edu-degree">{{this.degree}}</span>
+        <span class="edu-school"> — {{this.school}}</span>
+        {{#if this.gpa}} <span style="color: #94a3b8;">(GPA: {{this.gpa}})</span>{{/if}}
+      </div>
+      <div class="edu-year">{{this.year}}</div>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  {{#if hasCertifications}}
+  <div class="section">
+    <div class="section-title">Certifications</div>
+    {{#each certifications}}
+    <div class="cert-item">✓ {{this}}</div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  {{#if hasProjects}}
+  <div class="section">
+    <div class="section-title">Projects</div>
+    {{#each projects}}
+    <div class="project-item">
+      <span class="project-name">{{this.name}}</span> — {{this.description}}
+      {{#if this.tech.length}}<div class="project-tech">{{join this.tech " · "}}</div>{{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+</body>
+</html>

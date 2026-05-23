@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #2d2d2d; line-height: 1.6; }
+    .header { margin-bottom: 24px; }
+    .header h1 { font-size: 28pt; font-weight: 300; color: #1a1a1a; letter-spacing: 2px; margin-bottom: 8px; }
+    .contact-row { font-size: 9pt; color: #888; }
+    .contact-row span { margin-right: 12px; }
+    .contact-row a { color: #888; text-decoration: none; }
+    .divider { border: none; border-top: 0.5px solid #ddd; margin: 14px 0; }
+    .section { margin-bottom: 16px; }
+    .section-title { font-size: 9pt; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: #999; margin-bottom: 10px; }
+    .summary { font-size: 10pt; color: #555; }
+    .experience-item { margin-bottom: 14px; }
+    .exp-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+    .exp-title { font-weight: 600; font-size: 10.5pt; }
+    .exp-company { font-weight: 400; color: #666; }
+    .exp-dates { font-size: 9pt; color: #aaa; }
+    .bullets { list-style: none; padding-left: 0; margin-top: 4px; }
+    .bullets li { font-size: 9.5pt; color: #444; margin-bottom: 2px; padding-left: 12px; position: relative; }
+    .bullets li::before { content: '–'; position: absolute; left: 0; color: #ccc; }
+    .skills-row { font-size: 9.5pt; color: #555; margin-bottom: 4px; }
+    .skills-label { font-weight: 600; color: #333; }
+    .education-item { display: flex; justify-content: space-between; font-size: 10pt; margin-bottom: 4px; }
+    .project-item { font-size: 9.5pt; margin-bottom: 4px; }
+    .project-name { font-weight: 600; }
+    .project-tech { font-size: 8.5pt; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>{{contact.name}}</h1>
+    <div class="contact-row">
+      {{#if contact.email}}<span>{{contact.email}}</span>{{/if}}
+      {{#if contact.phone}}<span>{{contact.phone}}</span>{{/if}}
+      {{#if contact.location}}<span>{{contact.location}}</span>{{/if}}
+    </div>
+  </div>
+  <hr class="divider">
+  {{#if summary}}<div class="section"><div class="section-title">Profile</div><div class="summary">{{summary}}</div></div><hr class="divider">{{/if}}
+  {{#if experience.length}}<div class="section"><div class="section-title">Experience</div>{{#each experience}}<div class="experience-item"><div class="exp-row"><div><span class="exp-title">{{this.title}}</span>{{#if this.company}}<span class="exp-company"> — {{this.company}}</span>{{/if}}</div><div class="exp-dates">{{this.dates}}</div></div>{{#if this.bullets.length}}<ul class="bullets">{{#each this.bullets}}<li>{{this}}</li>{{/each}}</ul>{{/if}}</div>{{/each}}</div><hr class="divider">{{/if}}
+  {{#if skills}}<div class="section"><div class="section-title">Skills</div>{{#if skills.technical.length}}<div class="skills-row"><span class="skills-label">Technical: </span>{{join skills.technical " · "}}</div>{{/if}}{{#if skills.tools.length}}<div class="skills-row"><span class="skills-label">Tools: </span>{{join skills.tools " · "}}</div>{{/if}}</div><hr class="divider">{{/if}}
+  {{#if education.length}}<div class="section"><div class="section-title">Education</div>{{#each education}}<div class="education-item"><div>{{this.degree}} — {{this.school}}</div><div style="color:#aaa;font-size:9pt;">{{this.year}}</div></div>{{/each}}</div>{{/if}}
+  {{#if hasProjects}}<hr class="divider"><div class="section"><div class="section-title">Projects</div>{{#each projects}}<div class="project-item"><span class="project-name">{{this.name}}</span> — {{this.description}}</div>{{/each}}</div>{{/if}}
+</body>
+</html>
