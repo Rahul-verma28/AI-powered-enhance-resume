@@ -11,6 +11,7 @@ import type {
   GapAnalysis,
   RewriteResult,
   TailoredResumeData,
+  AIChange,
 } from '../types';
 
 /**
@@ -61,6 +62,7 @@ export class ResumeRewriter {
       missingKeywords: atsResult.missingKeywords,
       improvements: rewriteResponse.improvements,
       warningFlags: rewriteResponse.warningFlags,
+      aiChanges: rewriteResponse.aiChanges,
     };
   }
 
@@ -137,6 +139,7 @@ export class ResumeRewriter {
     tailoredData: TailoredResumeData;
     improvements: string[];
     warningFlags: string[];
+    aiChanges: AIChange[];
   }> {
     const prompt = buildRewritePrompt(resumeText, jdText, jdKeywords, missingKeywords);
 
@@ -187,6 +190,14 @@ export class ResumeRewriter {
       tailoredData,
       improvements: result.improvements || [],
       warningFlags: result.warningFlags || [],
+      aiChanges: (result.aiChanges || []).map((c: any, index: number) => ({
+        id: c.id || `change-${index}`,
+        section: c.section || 'summary',
+        label: c.label || 'Optimization',
+        before: c.before || '',
+        after: c.after || '',
+        status: 'pending' as const,
+      })),
     };
   }
 }

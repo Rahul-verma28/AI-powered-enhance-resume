@@ -4,6 +4,7 @@ import type {
   ATSBreakdown,
   ResumeStatus,
   TemplateId,
+  AIChange,
 } from '../types';
 
 export interface IResume extends Document {
@@ -11,9 +12,12 @@ export interface IResume extends Document {
   jobId?: Types.ObjectId;
   title: string;
   originalText: string;
+  jdText?: string;
   originalUrl?: string;
   originalFileName?: string;
   tailoredData?: TailoredResumeData;
+  liveTailoredData?: TailoredResumeData;
+  aiChanges: AIChange[];
   atsScore?: number;
   atsBreakdown?: ATSBreakdown;
   missingKeywords: string[];
@@ -77,6 +81,23 @@ const TailoredDataSchema = new Schema(
   { _id: false }
 );
 
+const AIChangeSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    section: { type: String, required: true },
+    label: { type: String, required: true },
+    before: { type: String, required: true },
+    after: { type: String, required: true },
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected', 'editing'],
+      default: 'pending',
+    },
+    editedContent: { type: String },
+  },
+  { _id: false }
+);
+
 const ATSBreakdownSchema = new Schema(
   {
     keywordScore: { type: Number, default: 0 },
@@ -108,9 +129,12 @@ const ResumeSchema = new Schema<IResume>(
       type: String,
       required: true,
     },
+    jdText: { type: String },
     originalUrl: { type: String },
     originalFileName: { type: String },
     tailoredData: { type: TailoredDataSchema },
+    liveTailoredData: { type: TailoredDataSchema },
+    aiChanges: { type: [AIChangeSchema], default: [] },
     atsScore: { type: Number, min: 0, max: 100 },
     atsBreakdown: { type: ATSBreakdownSchema },
     missingKeywords: { type: [String], default: [] },

@@ -109,6 +109,7 @@ interface AppState {
     missingKeywords: string[];
     improvements: string[];
     warningFlags?: string[];
+    aiChanges?: AIChange[];
   }) => void;
 
   /** Accept an AI change — apply it to liveTailoredData */
@@ -123,6 +124,9 @@ interface AppState {
   /** Apply the edited content and mark as accepted */
   applyEdit: (id: string) => void;
 
+  /** Save current edited state to the database */
+  saveResume: () => Promise<void>;
+
   setSelectedTemplate: (template: string) => void;
   setPipelineStep: (step: PipelineStep) => void;
   setError: (error: string | null) => void;
@@ -130,6 +134,31 @@ interface AppState {
 }
 
 // ── Helpers ──────────────────────────────────────────────────
+
+/**
+ * Immutably sets a nested value based on a string path (e.g. "experience.0.bullets.1")
+ */
+function setNestedValue(obj: any, path: string, value: any): any {
+  if (!obj) return obj;
+  const newObj = JSON.parse(JSON.stringify(obj));
+  const parts = path.split('.');
+  let current = newObj;
+  
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i];
+    const nextPart = parts[i + 1];
+    const isNextIdx = !isNaN(Number(nextPart));
+    
+    if (current[part] === undefined) {
+      current[part] = isNextIdx ? [] : {};
+    }
+    current = current[part];
+  }
+  
+  const lastPart = parts[parts.length - 1];
+  current[lastPart] = value;
+  return newObj;
+}
 
 /**
  * Build structured AI changes from improvements list and before/after data.
@@ -229,11 +258,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   setResumeId: (id) => set({ resumeId: id }),
 
   setTailoredResult: (result) => {
-    const aiChanges = buildAIChanges(result.tailoredData, result.improvements);
+    // If backend provided high-fidelity aiChanges, use them! Otherwise fall back to building them.
+    const aiChanges = result.aiChanges && result.aiChanges.length > 0
+      ? result.aiChanges.map(c => ({ ...c, status: 'accepted' as const })) // Default to accepted
+      : buildAIChanges(result.tailoredData, result.improvements).map(c => ({ ...c, status: 'accepted' as const }));
+
     set({
       resumeId: result.resumeId || null,
       tailoredData: result.tailoredData,
-      liveTailoredData: { ...result.tailoredData },
+      liveTailoredData: JSON.parse(JSON.stringify(result.tailoredData)), // baseline
       atsScore: result.atsScore,
       liveAtsScore: result.atsScore,
       atsBreakdown: result.atsBreakdown,
@@ -247,25 +280,41 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   acceptChange: (id) => {
-    const { aiChanges, atsScore } = get();
+    const { aiChanges, atsScore, liveTailoredData } = get();
     const updated = aiChanges.map((c) =>
       c.id === id ? { ...c, status: 'accepted' as const } : c
     );
+    const targetChange = aiChanges.find((c) => c.id === id);
+    let newTailoredData = liveTailoredData;
+    if (targetChange && liveTailoredData) {
+      newTailoredData = setNestedValue(liveTailoredData, targetChange.section, targetChange.after);
+    }
     set({
       aiChanges: updated,
+      liveTailoredData: newTailoredData,
       liveAtsScore: calcLiveScore(atsScore, updated),
     });
+    // Auto-save changes
+    get().saveResume();
   },
 
   rejectChange: (id) => {
-    const { aiChanges, atsScore } = get();
+    const { aiChanges, atsScore, liveTailoredData } = get();
     const updated = aiChanges.map((c) =>
       c.id === id ? { ...c, status: 'rejected' as const } : c
     );
+    const targetChange = aiChanges.find((c) => c.id === id);
+    let newTailoredData = liveTailoredData;
+    if (targetChange && liveTailoredData) {
+      newTailoredData = setNestedValue(liveTailoredData, targetChange.section, targetChange.before);
+    }
     set({
       aiChanges: updated,
+      liveTailoredData: newTailoredData,
       liveAtsScore: calcLiveScore(atsScore, updated),
     });
+    // Auto-save changes
+    get().saveResume();
   },
 
   editChange: (id, content) => {
@@ -277,19 +326,62 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   applyEdit: (id) => {
-    const { aiChanges, atsScore } = get();
+    const { aiChanges, atsScore, liveTailoredData } = get();
     const updated = aiChanges.map((c) =>
       c.id === id
         ? { ...c, status: 'accepted' as const, after: c.editedContent || c.after }
         : c
     );
+    const targetChange = aiChanges.find((c) => c.id === id);
+    let newTailoredData = liveTailoredData;
+    if (targetChange && liveTailoredData) {
+      newTailoredData = setNestedValue(
+        liveTailoredData,
+        targetChange.section,
+        targetChange.editedContent || targetChange.after
+      );
+    }
     set({
       aiChanges: updated,
+      liveTailoredData: newTailoredData,
       liveAtsScore: calcLiveScore(atsScore, updated),
     });
+    // Auto-save changes
+    get().saveResume();
   },
 
-  setSelectedTemplate: (template) => set({ selectedTemplate: template }),
+  saveResume: async () => {
+    const {
+      resumeId,
+      liveTailoredData,
+      aiChanges,
+      selectedTemplate,
+      liveAtsScore,
+      atsBreakdown,
+      matchedKeywords,
+      missingKeywords,
+    } = get();
+    if (!resumeId || !liveTailoredData) return;
+
+    try {
+      await resumeApi.patch(resumeId, {
+        liveTailoredData,
+        aiChanges,
+        selectedTemplate,
+        atsScore: liveAtsScore,
+        atsBreakdown,
+        matchedKeywords,
+        missingKeywords,
+      });
+    } catch (err) {
+      console.error('[Store] Failed to save resume edits:', err);
+    }
+  },
+
+  setSelectedTemplate: (template) => {
+    set({ selectedTemplate: template });
+    get().saveResume();
+  },
   setPipelineStep: (step) => set({ pipelineStep: step }),
   setError: (error) => set({ error, pipelineStep: error ? 'error' : 'idle' }),
   reset: () => set(initialState),

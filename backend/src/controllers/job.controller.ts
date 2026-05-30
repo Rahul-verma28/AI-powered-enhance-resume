@@ -140,6 +140,40 @@ export class JobController {
   }
 
   /**
+   * PATCH /api/jobs/:id
+   * Update any job details (notes, priority, applicationStatus, company, jobTitle, url, dates).
+   */
+  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.userId!;
+      const { company, jobTitle, applicationStatus, priority, applicationUrl, notes, appliedAt } = req.body;
+
+      const job = await Job.findOneAndUpdate(
+        { _id: req.params.id, userId },
+        {
+          ...(company !== undefined && { company }),
+          ...(jobTitle !== undefined && { jobTitle }),
+          ...(applicationStatus !== undefined && { applicationStatus }),
+          ...(priority !== undefined && { priority }),
+          ...(applicationUrl !== undefined && { applicationUrl }),
+          ...(notes !== undefined && { notes }),
+          ...(appliedAt !== undefined && { appliedAt }),
+          ...(applicationStatus === 'applied' && { appliedAt: new Date() }),
+        },
+        { new: true }
+      );
+
+      if (!job) {
+        throw new AppError('Job not found', 404);
+      }
+
+      res.json({ success: true, data: job });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * DELETE /api/jobs/:id
    */
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {

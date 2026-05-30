@@ -38,6 +38,16 @@ router.get('/:id/download/:template', (req, res, next) =>
   resumeController.download(req, res, next)
 );
 
+// Download ATS report
+router.get('/:id/ats-report', (req, res, next) =>
+  resumeController.downloadATSReport(req, res, next)
+);
+
+// Update resume data (user accepts changes or manually edits)
+router.patch('/:id', (req, res, next) =>
+  resumeController.update(req, res, next)
+);
+
 // Delete resume
 router.delete('/:id', (req, res, next) =>
   resumeController.delete(req, res, next)

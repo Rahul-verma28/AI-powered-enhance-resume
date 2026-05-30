@@ -2,6 +2,7 @@ import { config } from '../../config';
 import { ollamaService } from './ollama.service';
 import { claudeService } from './claude.service';
 import { openaiService } from './openai.service';
+import { bedrockService } from './bedrock.service';
 import type { AIProvider, AICallOptions, AIResponse } from '../../types';
 
 /**
@@ -23,6 +24,8 @@ export async function callAI(
       return claudeService.call(prompt, systemPrompt, options);
     case 'openai':
       return openaiService.call(prompt, systemPrompt, options);
+    case 'bedrock':
+      return bedrockService.call(prompt, systemPrompt, options);
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
   }
@@ -84,3 +87,4 @@ export async function callAIJSON<T = unknown>(
 export { ollamaService } from './ollama.service';
 export { claudeService } from './claude.service';
 export { openaiService } from './openai.service';
+export { bedrockService } from './bedrock.service';

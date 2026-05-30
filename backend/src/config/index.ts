@@ -27,7 +27,7 @@ export const config = {
 
   // AI Provider
   ai: {
-    provider: env('AI_PROVIDER', 'ollama') as 'ollama' | 'claude' | 'openai',
+    provider: env('AI_PROVIDER', 'ollama') as 'ollama' | 'claude' | 'openai' | 'bedrock',
     ollama: {
       baseUrl: env('OLLAMA_BASE_URL', 'http://localhost:11434'),
       model: env('OLLAMA_MODEL', 'llama3'),
@@ -37,6 +37,11 @@ export const config = {
     },
     openai: {
       apiKey: env('OPENAI_API_KEY'),
+    },
+    bedrock: {
+      apiKey: env('BEDROCK_API_KEY'),
+      region: env('BEDROCK_REGION', 'us-east-1'),
+      modelId: env('BEDROCK_MODEL_ID', 'anthropic.claude-3-5-sonnet-20241022-v2:0'),
     },
   },
 
@@ -69,7 +74,9 @@ console.log('[Config] Loaded:', {
   port: config.port,
   nodeEnv: config.nodeEnv,
   aiProvider: config.ai.provider,
-  aiModel: config.ai.ollama.model,
+  aiModel: config.ai.provider === 'ollama' 
+    ? config.ai.ollama.model 
+    : (config.ai.provider === 'bedrock' ? config.ai.bedrock.modelId : 'cloud'),
   cloudinaryCloud: config.cloudinary.cloudName || '(not set)',
   clerkConfigured: !!config.clerk.secretKey,
 });

@@ -66,7 +66,7 @@ export interface ATSResult {
 
 // ─── AI Types ───────────────────────────────────────────────
 
-export type AIProvider = 'ollama' | 'claude' | 'openai';
+export type AIProvider = 'ollama' | 'claude' | 'openai' | 'bedrock';
 
 export interface AICallOptions {
   maxTokens?: number;
@@ -100,6 +100,18 @@ export interface GapAnalysis {
   suggestions: string[];
 }
 
+export interface AIChange {
+  id: string;
+  section: string; // 'summary' | 'experience.0.bullets.1' | 'skills' etc.
+  label: string;   // Human-readable label
+  before: string;
+  after: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'editing';
+  editedContent?: string;
+}
+
+export type JobPriority = 'low' | 'medium' | 'high';
+
 export interface RewriteResult {
   tailoredData: TailoredResumeData;
   atsScore: number;
@@ -108,6 +120,7 @@ export interface RewriteResult {
   missingKeywords: string[];
   improvements: string[];
   warningFlags: string[];
+  aiChanges?: AIChange[];
 }
 
 // ─── Cover Letter Types ─────────────────────────────────────

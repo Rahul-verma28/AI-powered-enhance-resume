@@ -55,6 +55,149 @@ export class PDFGenerator {
   }
 
   /**
+   * Generate a beautiful Vercel-style ATS Report PDF.
+   */
+  async generateATSReportPDF(
+    title: string,
+    atsScore: number,
+    breakdown: any,
+    matchedKeywords: string[],
+    missingKeywords: string[],
+    improvements: string[],
+    warningFlags: string[]
+  ): Promise<Buffer> {
+    const matchedBadges = matchedKeywords.map(kw => `<span class="badge matched">${kw}</span>`).join(' ') || '<p class="empty">None</p>';
+    const missingBadges = missingKeywords.map(kw => `<span class="badge missing">${kw}</span>`).join(' ') || '<p class="empty">None</p>';
+    const improvementList = improvements.map(imp => `<li>${imp}</li>`).join('') || '<li>No optimizations recorded yet.</li>';
+    const warningList = warningFlags.map(wf => `<li class="warning-item">${wf}</li>`).join('') || '<li>No issues detected.</li>';
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #111827; padding: 48px 56px; background-color: #fafafa; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 24px; margin-bottom: 32px; }
+    .title-area h1 { font-size: 20pt; font-weight: 800; color: #000; letter-spacing: -0.025em; }
+    .title-area p { font-size: 9pt; color: #6b7280; margin-top: 4px; }
+    .score-badge { font-size: 28pt; font-weight: 900; background: linear-gradient(135deg, #2563eb, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .section-title { font-size: 12pt; font-weight: 700; color: #111827; margin-bottom: 16px; letter-spacing: -0.01em; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px; }
+    .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+    .card { background-color: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+    .breakdown-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 9.5pt; }
+    .breakdown-row:last-child { margin-bottom: 0; }
+    .progress-bar-bg { width: 100px; height: 6px; background-color: #f3f4f6; border-radius: 3px; overflow: hidden; margin-left: 12px; }
+    .progress-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #3b82f6, #6366f1); }
+    .badge { display: inline-block; font-size: 8pt; font-weight: 600; padding: 4px 8px; border-radius: 6px; margin: 0 4px 6px 0; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge.matched { background-color: #ecfdf5; color: #047857; border: 1px solid #d1fae5; }
+    .badge.missing { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fee2e2; }
+    .empty { font-size: 9pt; color: #9ca3af; font-style: italic; }
+    ul { list-style-type: none; }
+    li { position: relative; padding-left: 18px; margin-bottom: 8px; font-size: 9.5pt; color: #4b5563; }
+    li::before { content: "✓"; position: absolute; left: 0; color: #10b981; font-weight: bold; }
+    li.warning-item::before { content: "⚠"; color: #f59e0b; }
+    .full-width { grid-column: span 2; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title-area">
+      <h1>ATS Optimization Report</h1>
+      <p>Target Profile: ${title} · Generated on ${new Date().toLocaleDateString()}</p>
+    </div>
+    <div class="score-badge">${atsScore}% Match</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="section-title">ATS Breakdown</div>
+      <div class="breakdown-row">
+        <span>Keyword Match</span>
+        <div style="display: flex; align-items: center;">
+          <span>${breakdown?.keywordScore || 0}%</span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${breakdown?.keywordScore || 0}%"></div></div>
+        </div>
+      </div>
+      <div class="breakdown-row">
+        <span>Section Completeness</span>
+        <div style="display: flex; align-items: center;">
+          <span>${breakdown?.sectionScore || 0}%</span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${breakdown?.sectionScore || 0}%"></div></div>
+        </div>
+      </div>
+      <div class="breakdown-row">
+        <span>Bullet Quality</span>
+        <div style="display: flex; align-items: center;">
+          <span>${breakdown?.bulletQuality || 0}%</span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${breakdown?.bulletQuality || 0}%"></div></div>
+        </div>
+      </div>
+      <div class="breakdown-row">
+        <span>Formatting Compliance</span>
+        <div style="display: flex; align-items: center;">
+          <span>${breakdown?.formattingScore || 0}%</span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${breakdown?.formattingScore || 0}%"></div></div>
+        </div>
+      </div>
+      <div class="breakdown-row">
+        <span>Length Optimization</span>
+        <div style="display: flex; align-items: center;">
+          <span>${breakdown?.lengthScore || 0}%</span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${breakdown?.lengthScore || 0}%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Warning Flags & Diagnostics</div>
+      <ul>
+        ${warningList}
+      </ul>
+    </div>
+
+    <div class="card full-width">
+      <div class="section-title">Keywords Analysis</div>
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 9pt; font-weight: 700; color: #047857; margin-bottom: 6px;">Matched Keywords (${matchedKeywords.length})</div>
+        <div style="display: flex; flex-wrap: wrap;">${matchedBadges}</div>
+      </div>
+      <div>
+        <div style="font-size: 9pt; font-weight: 700; color: #b91c1c; margin-bottom: 6px;">Missing Keywords (${missingKeywords.length})</div>
+        <div style="display: flex; flex-wrap: wrap;">${missingBadges}</div>
+      </div>
+    </div>
+
+    <div class="card full-width">
+      <div class="section-title">Optimizations Made</div>
+      <ul>
+        ${improvementList}
+      </ul>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0.4in', right: '0.5in', bottom: '0.4in', left: '0.5in' },
+      });
+      return Buffer.from(pdf);
+    } finally {
+      await browser.close();
+    }
+  }
+
+  /**
    * Generate a PDF from plain cover letter text content.
    */
   async generateCoverLetterPDF(

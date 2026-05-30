@@ -23,6 +23,8 @@ export function buildRewritePrompt(
   missingKeywords: string[]
 ): string {
   return `Rewrite the following resume to be ATS-optimized for the target job description.
+  
+You must also construct a list of "aiChanges" detailing the high-impact modifications you made compared to the original resume. This allows the user to see exactly what you optimized (summary, experience bullets, skills, projects) in a Before/After comparison.
 
 ORIGINAL RESUME:
 """
@@ -63,6 +65,22 @@ Return a JSON object with this EXACT schema:
   "projects": [{ "name": "", "description": "", "tech": [], "link": "" }],
   "missingKeywords": ["keywords candidate genuinely lacks"],
   "improvements": ["Added X keyword", "Quantified Y achievement"],
-  "warningFlags": ["Could not verify: specific claim"]
+  "warningFlags": ["Could not verify: specific claim"],
+  "aiChanges": [
+    {
+      "id": "change-0",
+      "section": "summary",
+      "label": "Professional Summary",
+      "before": "Original professional summary text from original resume",
+      "after": "Sleek, ATS-optimized summary text"
+    },
+    {
+      "id": "change-1",
+      "section": "experience.0.bullets.0",
+      "label": "Senior Developer at TechCorp — Bullet 1",
+      "before": "Original experience bullet from original resume",
+      "after": "Tailored experience bullet with action verb and quantified metric"
+    }
+  ]
 }`;
 }

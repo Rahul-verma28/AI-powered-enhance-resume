@@ -90,6 +90,7 @@ export class ResumeController {
         userId,
         title: jobTitle || company || 'Untitled Position',
         originalText: text,
+        jdText,
         status: 'processing',
         processingStartedAt: new Date(),
       });
@@ -100,6 +101,8 @@ export class ResumeController {
 
         // Update resume with results
         resume.tailoredData = result.tailoredData;
+        resume.liveTailoredData = result.tailoredData;
+        resume.aiChanges = result.aiChanges || [];
         resume.atsScore = result.atsScore;
         resume.atsBreakdown = result.atsBreakdown;
         resume.matchedKeywords = result.matchedKeywords || [];
@@ -206,9 +209,12 @@ export class ResumeController {
         jobId: original.jobId,
         title: original.title,
         originalText: original.originalText,
+        jdText,
         originalUrl: original.originalUrl,
         originalFileName: original.originalFileName,
         tailoredData: result.tailoredData,
+        liveTailoredData: result.tailoredData,
+        aiChanges: result.aiChanges || [],
         atsScore: result.atsScore,
         atsBreakdown: result.atsBreakdown,
         missingKeywords: result.missingKeywords,
@@ -238,11 +244,12 @@ export class ResumeController {
       const templateId = (req.params.template || 'modern') as TemplateId;
 
       const resume = await Resume.findOne({ _id: req.params.id, userId });
-      if (!resume || !resume.tailoredData) {
+      if (!resume || (!resume.tailoredData && !resume.liveTailoredData)) {
         throw new AppError('Resume not found or not yet tailored', 404);
       }
 
-      const pdfBuffer = await pdfGenerator.generate(resume.tailoredData, templateId);
+      const activeData = resume.liveTailoredData || resume.tailoredData;
+      const pdfBuffer = await pdfGenerator.generate(activeData!, templateId);
 
       // Update selected template
       resume.selectedTemplate = templateId;
@@ -255,6 +262,83 @@ export class ResumeController {
       });
 
       res.send(pdfBuffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/resume/:id/ats-report
+   * Compile and download a beautiful ATS optimization report PDF.
+   */
+  async downloadATSReport(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.userId!;
+      const resume = await Resume.findOne({ _id: req.params.id, userId });
+
+      if (!resume) {
+        throw new AppError('Resume not found', 404);
+      }
+
+      const score = resume.atsScore || 0;
+      const breakdown = resume.atsBreakdown || {
+        keywordScore: 0,
+        sectionScore: 0,
+        bulletQuality: 0,
+        formattingScore: 0,
+        lengthScore: 0
+      };
+
+      const pdfBuffer = await pdfGenerator.generateATSReportPDF(
+        resume.title || 'Untitled Profile',
+        score,
+        breakdown,
+        resume.matchedKeywords || [],
+        resume.missingKeywords || [],
+        resume.improvements || [],
+        resume.warningFlags || []
+      );
+
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="ats-report-${resume._id}.pdf"`,
+        'Content-Length': pdfBuffer.length.toString(),
+      });
+
+      res.send(pdfBuffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PATCH /api/resume/:id
+   * Update a resume's tailoredData, liveTailoredData, aiChanges, selectedTemplate, atsScore, atsBreakdown, missingKeywords, matchedKeywords.
+   */
+  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.userId!;
+      const { liveTailoredData, aiChanges, selectedTemplate, atsScore, atsBreakdown, matchedKeywords, missingKeywords } = req.body;
+
+      const resume = await Resume.findOneAndUpdate(
+        { _id: req.params.id, userId },
+        {
+          ...(liveTailoredData !== undefined && { liveTailoredData }),
+          ...(aiChanges !== undefined && { aiChanges }),
+          ...(selectedTemplate !== undefined && { selectedTemplate }),
+          ...(atsScore !== undefined && { atsScore }),
+          ...(atsBreakdown !== undefined && { atsBreakdown }),
+          ...(matchedKeywords !== undefined && { matchedKeywords }),
+          ...(missingKeywords !== undefined && { missingKeywords }),
+        },
+        { new: true }
+      );
+
+      if (!resume) {
+        throw new AppError('Resume not found', 404);
+      }
+
+      res.json({ success: true, data: resume });
     } catch (error) {
       next(error);
     }

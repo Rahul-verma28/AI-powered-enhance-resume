@@ -35,14 +35,33 @@ export class CoverLetterController {
         resolvedResumeText = resume.tailoredData
           ? JSON.stringify(resume.tailoredData, null, 2)
           : resume.originalText;
+
+        // If jobId is not provided but the resume is linked to a jobId, use it!
+        if (!resolvedJobId && resume.jobId) {
+          resolvedJobId = resume.jobId;
+        }
+
+        // Fallback: If jdText is still empty, see if it is stored directly on the resume document!
+        if (!resolvedJdText && resume.jdText) {
+          resolvedJdText = resume.jdText;
+        }
+
+        // Fallback: If company and job title are empty, deduce them from the resume's tailored title
+        if (!resolvedCompany) {
+          resolvedCompany = resume.title.split(' - ')[0] || resume.title;
+        }
+        if (!resolvedJobTitle) {
+          resolvedJobTitle = resume.title.split(' - ')[1] || resume.title;
+        }
       }
 
-      if (jobId) {
-        const job = await Job.findOne({ _id: jobId, userId });
-        if (!job) throw new AppError('Job not found', 404);
-        resolvedJdText = job.jdRaw;
-        resolvedCompany = job.company;
-        resolvedJobTitle = job.jobTitle;
+      if (resolvedJobId && !resolvedJdText) {
+        const job = await Job.findOne({ _id: resolvedJobId, userId });
+        if (job) {
+          resolvedJdText = job.jdRaw;
+          if (!resolvedCompany) resolvedCompany = job.company;
+          if (!resolvedJobTitle) resolvedJobTitle = job.jobTitle;
+        }
       }
 
       // Validate we have enough data

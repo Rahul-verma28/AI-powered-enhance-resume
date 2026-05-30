@@ -102,6 +102,12 @@ export const resumeApi = {
   download: (id: string, template: string) =>
     api.get(`/resume/${id}/download/${template}`, { responseType: 'blob' }),
 
+  downloadATSReport: (id: string) =>
+    api.get(`/resume/${id}/ats-report`, { responseType: 'blob' }),
+
+  patch: (id: string, data: any) =>
+    api.patch(`/resume/${id}`, data),
+
   delete: (id: string) => api.delete(`/resume/${id}`),
 };
 
@@ -118,6 +124,9 @@ export const jobApi = {
 
   updateStatus: (id: string, data: { applicationStatus: string; notes?: string }) =>
     api.patch(`/jobs/${id}/status`, data),
+
+  update: (id: string, data: any) =>
+    api.patch(`/jobs/${id}`, data),
 
   delete: (id: string) => api.delete(`/jobs/${id}`),
 

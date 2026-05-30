@@ -3,6 +3,7 @@ import resumeRoutes from './resume.routes';
 import jobRoutes from './job.routes';
 import coverLetterRoutes from './coverLetter.routes';
 import atsRoutes from './ats.routes';
+import aiRoutes from './ai.routes';
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use('/resume', resumeRoutes);
 router.use('/jobs', jobRoutes);
 router.use('/cover-letter', coverLetterRoutes);
 router.use('/ats', atsRoutes);
+router.use('/ai', aiRoutes);
 
 export default router;

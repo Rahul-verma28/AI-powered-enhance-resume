@@ -27,9 +27,14 @@ router.get('/:id', (req, res, next) =>
   jobController.getById(req, res, next)
 );
 
-// Update status
+// Update job status
 router.patch('/:id/status', validate(updateJobStatusSchema), (req, res, next) =>
   jobController.updateStatus(req, res, next)
+);
+
+// Update general job details (e.g. priority, notes, details)
+router.patch('/:id', (req, res, next) =>
+  jobController.update(req, res, next)
 );
 
 // Delete job

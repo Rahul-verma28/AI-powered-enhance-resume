@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
-import type { ApplicationStatus } from '../types';
+import type { ApplicationStatus, JobPriority } from '../types';
 
 export interface IJob extends Document {
   userId: string;
@@ -11,6 +11,7 @@ export interface IJob extends Document {
   industry: string;
   seniorityLevel: string;
   applicationStatus: ApplicationStatus;
+  priority: JobPriority;
   applicationUrl?: string;
   notes?: string;
   appliedAt?: Date;
@@ -59,6 +60,11 @@ const JobSchema = new Schema<IJob>(
       type: String,
       enum: ['saved', 'applied', 'interview', 'offer', 'rejected'],
       default: 'saved',
+    },
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'medium',
     },
     applicationUrl: { type: String },
     notes: { type: String },

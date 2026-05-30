@@ -9,6 +9,8 @@ import connectDB from './config/database';
 import { errorHandler, notFoundHandler } from './middleware';
 import routes from './routes';
 
+// Forced trigger watch reload to compile schema updates
+
 async function bootstrap(): Promise<void> {
   const app = express();
 
