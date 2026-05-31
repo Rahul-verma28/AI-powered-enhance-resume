@@ -1,6 +1,8 @@
 'use client';
 
 import { create } from 'zustand';
+import { resumeApi } from './api';
+import { toast } from 'sonner';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -62,6 +64,7 @@ export interface AIChange {
   after: string;
   status: 'pending' | 'accepted' | 'rejected' | 'editing';
   editedContent?: string; // When user manually edits the "after"
+  explanation?: string; // High-fidelity reason for optimizations
 }
 
 export type PipelineStep =
@@ -81,6 +84,7 @@ interface AppState {
   originalText: string;
   jdText: string;
   resumeId: string | null;
+  title: string;
   tailoredData: ResumeData | null;
   liveTailoredData: ResumeData | null; // Live-edited version as user accepts/rejects changes
   atsScore: number;
@@ -99,10 +103,13 @@ interface AppState {
   setOriginalText: (text: string) => void;
   setJdText: (text: string) => void;
   setResumeId: (id: string | null) => void;
+  updateTitle: (newTitle: string) => void;
 
   setTailoredResult: (result: {
     resumeId?: string;
+    title?: string;
     tailoredData: ResumeData;
+    liveTailoredData?: ResumeData;
     atsScore: number;
     atsBreakdown: ATSBreakdown;
     matchedKeywords: string[];
@@ -126,6 +133,10 @@ interface AppState {
 
   /** Save current edited state to the database */
   saveResume: () => Promise<void>;
+
+  /** Bulk operations for float toolbar */
+  acceptAllChanges: () => void;
+  resetChanges: () => void;
 
   setSelectedTemplate: (template: string) => void;
   setPipelineStep: (step: PipelineStep) => void;
@@ -180,6 +191,7 @@ function buildAIChanges(
       before: '(original summary — accept to apply AI version)',
       after: originalTailoredData.summary,
       status: 'pending',
+      explanation: 'Optimizes target title match, incorporates soft skills, and mirrors JD keywords for high-impact professional summaries.',
     });
   }
 
@@ -194,10 +206,10 @@ function buildAIChanges(
           before: '(original bullet)',
           after: bullet,
           status: 'pending',
+          explanation: 'Re-writes experience bullet using the STAR method, starting with a strong action verb and highlighting quantified business results.',
         });
       }
     });
-    return changes;
   });
 
   // Skills enhancement
@@ -209,22 +221,25 @@ function buildAIChanges(
       before: '(original skills)',
       after: originalTailoredData.skills.technical.join(', '),
       status: 'pending',
+      explanation: 'Balances skills layout to highlight primary technologies matching JD keywords for immediate ATS parsing success.',
     });
   }
 
   return changes.slice(0, 8); // Cap at 8 most important changes
 }
 
-/** Recalculate a rough live ATS score based on accepted changes */
+/** Recalculate a responsive live ATS score based on accepted changes */
 function calcLiveScore(baseScore: number, changes: AIChange[]): number {
   const total = changes.length;
   if (total === 0) return baseScore;
+  
+  // Baseline score is 55% of the optimized baseScore (matches user image 47 vs 86)
+  const baseline = Math.round(baseScore * 0.55);
+  const gap = baseScore - baseline;
+  
   const accepted = changes.filter((c) => c.status === 'accepted').length;
-  const rejected = changes.filter((c) => c.status === 'rejected').length;
-
-  // Each accepted change adds up to ~2pts, each rejected subtracts ~1pt
-  const delta = accepted * 2 - rejected * 1;
-  return Math.min(100, Math.max(0, baseScore + delta));
+  const score = baseline + Math.round((accepted / total) * gap);
+  return Math.min(100, Math.max(0, score));
 }
 
 // ── Initial State ─────────────────────────────────────────────
@@ -233,6 +248,7 @@ const initialState = {
   originalText: '',
   jdText: '',
   resumeId: null,
+  title: '',
   tailoredData: null,
   liveTailoredData: null,
   atsScore: 0,
@@ -256,19 +272,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   setOriginalText: (text) => set({ originalText: text }),
   setJdText: (text) => set({ jdText: text }),
   setResumeId: (id) => set({ resumeId: id }),
+  updateTitle: (newTitle) => {
+    set({ title: newTitle });
+    get().saveResume();
+  },
 
   setTailoredResult: (result) => {
-    // If backend provided high-fidelity aiChanges, use them! Otherwise fall back to building them.
+    // Preserve existing accept/reject status if provided
     const aiChanges = result.aiChanges && result.aiChanges.length > 0
-      ? result.aiChanges.map(c => ({ ...c, status: 'accepted' as const })) // Default to accepted
-      : buildAIChanges(result.tailoredData, result.improvements).map(c => ({ ...c, status: 'accepted' as const }));
+      ? result.aiChanges.map(c => ({ ...c, status: c.status || 'pending' as const }))
+      : buildAIChanges(result.tailoredData, result.improvements).map(c => ({ ...c, status: 'pending' as const }));
 
     set({
       resumeId: result.resumeId || null,
+      title: result.title || '',
       tailoredData: result.tailoredData,
-      liveTailoredData: JSON.parse(JSON.stringify(result.tailoredData)), // baseline
+      liveTailoredData: result.liveTailoredData 
+        ? JSON.parse(JSON.stringify(result.liveTailoredData)) 
+        : JSON.parse(JSON.stringify(result.tailoredData)),
       atsScore: result.atsScore,
-      liveAtsScore: result.atsScore,
+      liveAtsScore: calcLiveScore(result.atsScore, aiChanges), // Responsive initial score
       atsBreakdown: result.atsBreakdown,
       matchedKeywords: result.matchedKeywords || [],
       missingKeywords: result.missingKeywords,
@@ -294,7 +317,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       liveTailoredData: newTailoredData,
       liveAtsScore: calcLiveScore(atsScore, updated),
     });
-    // Auto-save changes
     get().saveResume();
   },
 
@@ -313,7 +335,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       liveTailoredData: newTailoredData,
       liveAtsScore: calcLiveScore(atsScore, updated),
     });
-    // Auto-save changes
     get().saveResume();
   },
 
@@ -346,17 +367,51 @@ export const useAppStore = create<AppState>((set, get) => ({
       liveTailoredData: newTailoredData,
       liveAtsScore: calcLiveScore(atsScore, updated),
     });
-    // Auto-save changes
     get().saveResume();
+  },
+
+  acceptAllChanges: () => {
+    const { aiChanges, atsScore, liveTailoredData } = get();
+    if (!liveTailoredData) return;
+    let newTailoredData = JSON.parse(JSON.stringify(liveTailoredData));
+    const updated = aiChanges.map((c) => {
+      newTailoredData = setNestedValue(newTailoredData, c.section, c.after);
+      return { ...c, status: 'accepted' as const };
+    });
+    set({
+      aiChanges: updated,
+      liveTailoredData: newTailoredData,
+      liveAtsScore: atsScore,
+    });
+    get().saveResume();
+    toast.success('Accepted all AI suggestions!');
+  },
+
+  resetChanges: () => {
+    const { aiChanges, atsScore, liveTailoredData } = get();
+    if (!liveTailoredData) return;
+    let newTailoredData = JSON.parse(JSON.stringify(liveTailoredData));
+    const updated = aiChanges.map((c) => {
+      newTailoredData = setNestedValue(newTailoredData, c.section, c.before);
+      return { ...c, status: 'pending' as const };
+    });
+    set({
+      aiChanges: updated,
+      liveTailoredData: newTailoredData,
+      liveAtsScore: calcLiveScore(atsScore, updated),
+    });
+    get().saveResume();
+    toast.success('Reset all changes to pending.');
   },
 
   saveResume: async () => {
     const {
       resumeId,
+      title,
       liveTailoredData,
       aiChanges,
       selectedTemplate,
-      liveAtsScore,
+      atsScore,
       atsBreakdown,
       matchedKeywords,
       missingKeywords,
@@ -365,10 +420,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     try {
       await resumeApi.patch(resumeId, {
+        title,
         liveTailoredData,
         aiChanges,
         selectedTemplate,
-        atsScore: liveAtsScore,
+        atsScore,
         atsBreakdown,
         matchedKeywords,
         missingKeywords,

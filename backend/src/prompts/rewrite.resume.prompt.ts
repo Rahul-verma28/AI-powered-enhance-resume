@@ -72,14 +72,16 @@ Return a JSON object with this EXACT schema:
       "section": "summary",
       "label": "Professional Summary",
       "before": "Original professional summary text from original resume",
-      "after": "Sleek, ATS-optimized summary text"
+      "after": "Sleek, ATS-optimized summary text",
+      "explanation": "Includes exact job title 'Senior Software Engineer - Full Stack', incorporates soft skills, and adds critical keywords like Kubernetes and Docker."
     },
     {
       "id": "change-1",
       "section": "experience.0.bullets.0",
       "label": "Senior Developer at TechCorp — Bullet 1",
       "before": "Original experience bullet from original resume",
-      "after": "Tailored experience bullet with action verb and quantified metric"
+      "after": "Tailored experience bullet with action verb and quantified metric",
+      "explanation": "Starts with action verb, uses STAR structure, and adds metrics like 25% performance improvement."
     }
   ]
 }`;

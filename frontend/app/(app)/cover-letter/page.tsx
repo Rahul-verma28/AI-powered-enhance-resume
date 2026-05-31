@@ -108,15 +108,22 @@ export default function CoverLetterPage() {
         payload.resumeId = selectedResumeId;
         payload.jobId = targetResume?.jobId?._id || targetResume?.jobId;
         
-        // Fetch detailed resume data if required
+        // Fetch detailed resume data
         const detailedResumeRes: any = await resumeApi.getById(selectedResumeId);
         const detailedResume = detailedResumeRes?.data || detailedResumeRes;
-        payload.resumeText = detailedResume.originalText;
-        // Search if linked job is stored
-        if (detailedResume.jobId) {
-          payload.company = detailedResume.title || 'Target Company';
-          payload.jobTitle = detailedResume.title || 'Target Title';
-        }
+        payload.resumeText = detailedResume.liveTailoredData 
+          ? JSON.stringify(detailedResume.liveTailoredData, null, 2)
+          : detailedResume.tailoredData 
+            ? JSON.stringify(detailedResume.tailoredData, null, 2)
+            : detailedResume.originalText;
+        
+        payload.jdText = detailedResume.jdText;
+        
+        // Deduce company and title from the resume title or fallback
+        const resumeTitle = detailedResume.title || 'Target Company - Target Role';
+        const parts = resumeTitle.split(' - ');
+        payload.company = parts[0] || 'Target Company';
+        payload.jobTitle = parts[1] || parts[0] || 'Target Role';
       } else {
         payload.company = standaloneCompany;
         payload.jobTitle = standaloneTitle;
@@ -285,6 +292,43 @@ export default function CoverLetterPage() {
               ) : (
                 /* Standalone Mode Inputs */
                 <div className="space-y-3">
+                  {resumes.length > 0 && (
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold text-muted-foreground">Auto-fill from History Resume</label>
+                      <select
+                        value=""
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            try {
+                              const res: any = await resumeApi.getById(val);
+                              const resume = res.data || res;
+                              if (resume) {
+                                const text = resume.liveTailoredData
+                                  ? JSON.stringify(resume.liveTailoredData, null, 2)
+                                  : resume.tailoredData
+                                    ? JSON.stringify(resume.tailoredData, null, 2)
+                                    : resume.originalText;
+                                setStandaloneResume(text);
+                                toast.success('Successfully imported background details!');
+                              }
+                            } catch (err) {
+                              toast.error('Failed to fetch resume details');
+                            }
+                          }
+                        }}
+                        className="w-full rounded-lg border border-border/80 bg-background px-3 py-2 text-xs font-medium focus-visible:ring-indigo-500 text-foreground"
+                      >
+                        <option value="">-- Select a Resume to Auto-Fill --</option>
+                        {resumes.map((r) => (
+                          <option key={r._id} value={r._id}>
+                            {r.title} (ATS Score: {r.atsScore}%)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1 block text-[10px] font-bold text-muted-foreground">Target Company *</label>
@@ -292,7 +336,7 @@ export default function CoverLetterPage() {
                         placeholder="e.g. Vercel" 
                         value={standaloneCompany} 
                         onChange={(e) => setStandaloneCompany(e.target.value)}
-                        className="text-xs h-8"
+                        className="text-xs h-8 text-foreground bg-background"
                       />
                     </div>
                     <div>
@@ -301,7 +345,7 @@ export default function CoverLetterPage() {
                         placeholder="e.g. Frontend Engineer" 
                         value={standaloneTitle} 
                         onChange={(e) => setStandaloneTitle(e.target.value)}
-                        className="text-xs h-8"
+                        className="text-xs h-8 text-foreground bg-background"
                       />
                     </div>
                   </div>
@@ -309,20 +353,18 @@ export default function CoverLetterPage() {
                     <label className="mb-1 block text-[10px] font-bold text-muted-foreground">Paste Job Description * (min 50 chars)</label>
                     <Textarea 
                       placeholder="Paste the JD raw text details..." 
-                      rows={4}
                       value={standaloneJd} 
                       onChange={(e) => setStandaloneJd(e.target.value)}
-                      className="text-xs resize-none"
+                      className="text-xs resize-none h-[120px] max-h-[120px] overflow-y-auto text-foreground bg-background"
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-bold text-muted-foreground">Paste Your Background/Resume Details *</label>
                     <Textarea 
                       placeholder="Paste your active experience bullet details or bio..." 
-                      rows={4}
                       value={standaloneResume} 
                       onChange={(e) => setStandaloneResume(e.target.value)}
-                      className="text-xs resize-none"
+                      className="text-xs resize-none h-[120px] max-h-[120px] overflow-y-auto text-foreground bg-background"
                     />
                   </div>
                 </div>

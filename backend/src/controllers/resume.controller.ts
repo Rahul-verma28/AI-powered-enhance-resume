@@ -249,7 +249,8 @@ export class ResumeController {
       }
 
       const activeData = resume.liveTailoredData || resume.tailoredData;
-      const pdfBuffer = await pdfGenerator.generate(activeData!, templateId);
+      const plainData = (activeData as any).toObject ? (activeData as any).toObject() : JSON.parse(JSON.stringify(activeData));
+      const pdfBuffer = await pdfGenerator.generate(plainData, templateId);
 
       // Update selected template
       resume.selectedTemplate = templateId;
@@ -289,10 +290,12 @@ export class ResumeController {
         lengthScore: 0
       };
 
+      const plainBreakdown = (breakdown as any).toObject ? (breakdown as any).toObject() : JSON.parse(JSON.stringify(breakdown));
+
       const pdfBuffer = await pdfGenerator.generateATSReportPDF(
         resume.title || 'Untitled Profile',
         score,
-        breakdown,
+        plainBreakdown,
         resume.matchedKeywords || [],
         resume.missingKeywords || [],
         resume.improvements || [],
@@ -318,11 +321,12 @@ export class ResumeController {
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.userId!;
-      const { liveTailoredData, aiChanges, selectedTemplate, atsScore, atsBreakdown, matchedKeywords, missingKeywords } = req.body;
+      const { title, liveTailoredData, aiChanges, selectedTemplate, atsScore, atsBreakdown, matchedKeywords, missingKeywords } = req.body;
 
       const resume = await Resume.findOneAndUpdate(
         { _id: req.params.id, userId },
         {
+          ...(title !== undefined && { title }),
           ...(liveTailoredData !== undefined && { liveTailoredData }),
           ...(aiChanges !== undefined && { aiChanges }),
           ...(selectedTemplate !== undefined && { selectedTemplate }),

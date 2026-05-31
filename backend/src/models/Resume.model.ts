@@ -94,6 +94,7 @@ const AIChangeSchema = new Schema(
       default: 'pending',
     },
     editedContent: { type: String },
+    explanation: { type: String },
   },
   { _id: false }
 );

@@ -16,6 +16,51 @@ export class PDFGenerator {
   }
 
   /**
+   * Robust browser launcher that falls back to local Google Chrome or Microsoft Edge
+   * on Windows when standard Puppeteer launch fails.
+   */
+  private async launchBrowser(): Promise<any> {
+    const launchOptions: any = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+      ],
+    };
+
+    try {
+      return await puppeteer.launch(launchOptions);
+    } catch (e: any) {
+      console.warn("Standard puppeteer launch failed. Trying Windows local Chrome/Edge path fallback...", e.message);
+      
+      const paths = [
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe') : '',
+        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      ].filter(Boolean);
+
+      for (const exePath of paths) {
+        if (fs.existsSync(exePath)) {
+          try {
+            console.log(`Found local browser fallback: ${exePath}`);
+            return await puppeteer.launch({
+              ...launchOptions,
+              executablePath: exePath,
+            });
+          } catch (err: any) {
+            console.error(`Local browser launch failed for path ${exePath}:`, err.message);
+          }
+        }
+      }
+      throw e;
+    }
+  }
+
+
+  /**
    * Generate a PDF from tailored resume data using a specific template.
    */
   async generate(
@@ -24,14 +69,7 @@ export class PDFGenerator {
   ): Promise<Buffer> {
     const html = this.renderTemplate(data, templateId);
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-    });
+    const browser = await this.launchBrowser();
 
     try {
       const page = await browser.newPage();
@@ -178,10 +216,7 @@ export class PDFGenerator {
 </body>
 </html>`;
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
+    const browser = await this.launchBrowser();
 
     try {
       const page = await browser.newPage();
@@ -232,10 +267,7 @@ export class PDFGenerator {
 </body>
 </html>`;
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
+    const browser = await this.launchBrowser();
 
     try {
       const page = await browser.newPage();

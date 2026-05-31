@@ -197,6 +197,7 @@ export class ResumeRewriter {
         before: c.before || '',
         after: c.after || '',
         status: 'pending' as const,
+        explanation: c.explanation || '',
       })),
     };
   }

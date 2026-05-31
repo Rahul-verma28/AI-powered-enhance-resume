@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -128,9 +129,10 @@ export default function TailorPage() {
   const {
     resumeId, originalText, jdText, tailoredData, liveTailoredData,
     atsScore, liveAtsScore, atsBreakdown, matchedKeywords, missingKeywords,
-    improvements, aiChanges, selectedTemplate, pipelineStep, error,
+    improvements, aiChanges, selectedTemplate, pipelineStep, error, title,
     setOriginalText, setJdText, setTailoredResult, setSelectedTemplate,
-    setPipelineStep, setError, reset, acceptChange, rejectChange, editChange, applyEdit,
+    setPipelineStep, setError, reset, acceptChange, rejectChange, editChange, applyEdit, updateTitle,
+    acceptAllChanges, resetChanges,
   } = useAppStore();
 
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -140,9 +142,14 @@ export default function TailorPage() {
   const [hoverTemplate, setHoverTemplate] = useState<string | null>(null);
   const [editingChangeId, setEditingChangeId] = useState<string | null>(null);
   const [manualEditText, setManualEditText] = useState('');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+
+  const { isLoaded, isSignedIn } = useAuth();
 
   // Handle URL queries for history loading
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
     const loadFromQuery = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const queryId = urlParams.get('id');
@@ -163,7 +170,9 @@ export default function TailorPage() {
             if (resume.tailoredData) {
               setTailoredResult({
                 resumeId: resume._id,
+                title: resume.title || '',
                 tailoredData: resume.tailoredData,
+                liveTailoredData: resume.liveTailoredData || resume.tailoredData,
                 atsScore: resume.atsScore || 0,
                 atsBreakdown: resume.atsBreakdown || {
                   keywordScore: 0,
@@ -196,7 +205,7 @@ export default function TailorPage() {
       }
     };
     loadFromQuery();
-  }, [setTailoredResult, setPipelineStep, setSelectedTemplate, setOriginalText, setJdText]);
+  }, [isLoaded, isSignedIn, setTailoredResult, setPipelineStep, setSelectedTemplate, setOriginalText, setJdText]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -288,7 +297,8 @@ export default function TailorPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Optimized_Resume_${activeTemp}.pdf`);
+      const safeTitle = (title || 'Optimized_Resume').replace(/[^a-z0-9_-]/gi, '_');
+      link.setAttribute('download', `${safeTitle}_${activeTemp}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -310,7 +320,8 @@ export default function TailorPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `ATS_Score_Report_${resumeId}.pdf`);
+      const safeTitle = (title || 'ATS_Report').replace(/[^a-z0-9_-]/gi, '_');
+      link.setAttribute('download', `ATS_Score_Report_${safeTitle}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -345,69 +356,120 @@ export default function TailorPage() {
   if (pipelineStep === 'done' && liveTailoredData) {
     const activeTemp = hoverTemplate || selectedTemplate;
 
+    const handleStartEditTitle = () => {
+      setEditedTitle(title || 'Untitled Tailored Resume');
+      setIsEditingTitle(true);
+    };
+
+    const handleSaveTitle = () => {
+      if (editedTitle.trim()) {
+        updateTitle(editedTitle.trim());
+      }
+      setIsEditingTitle(false);
+    };
+
     return (
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-4.5rem)] overflow-hidden -m-6 sm:-m-8">
+      <div className="flex flex-col h-[calc(100vh-4.5rem)] overflow-hidden -m-6 sm:-m-8 bg-background">
         
-        {/* LEFT COLUMN: Collaborative AI Suggestions Workspace */}
-        <div className="w-full lg:w-[480px] shrink-0 border-r border-border h-full flex flex-col overflow-y-auto bg-background/95 p-5 space-y-5">
-          
-          {/* Header Row */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">AI Collaborative Workspace</h1>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Approve, reject, or customize improvements in real-time</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={reset} className="h-7 text-[10px] gap-1 px-2.5">
-              <RefreshCw className="h-3 w-3" /> Re-start
-            </Button>
+        {/* Workspace Header Bar */}
+        <div className="w-full border-b border-border bg-card px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0 shadow-sm z-10">
+          <div className="flex items-center gap-2">
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveTitle();
+                    if (e.key === 'Escape') setIsEditingTitle(false);
+                  }}
+                  className="px-3 py-1 text-sm font-semibold bg-background border border-indigo-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-xs sm:max-w-md text-foreground"
+                  autoFocus
+                />
+                <Button size="icon" variant="ghost" onClick={handleSaveTitle} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => setIsEditingTitle(false)} className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 group cursor-pointer" onClick={handleStartEditTitle}>
+                <h1 className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
+                  {title || 'Untitled Position'}
+                </h1>
+                <Edit2 className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            )}
           </div>
 
-          <Separator className="bg-border/40" />
-
-          {/* Scoring Assessment Overview */}
-          <div className="flex gap-4 items-center bg-accent/30 rounded-xl p-4 border border-border/40">
-            <ScoreRing score={liveAtsScore} />
-            <div className="flex-1 space-y-1.5 text-xs">
-              <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-wider">Match Overview</p>
-              {atsBreakdown && (
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center text-[10px]">
-                    <span>Keywords Match</span>
-                    <span className="font-mono font-bold text-indigo-500">{atsBreakdown.keywordScore}%</span>
-                  </div>
-                  <div className="flex justify-between items-center text-[10px]">
-                    <span>Bullet Quality</span>
-                    <span className="font-mono font-bold text-violet-500">{atsBreakdown.bulletQuality}%</span>
-                  </div>
-                  <div className="flex justify-between items-center text-[10px]">
-                    <span>Formatting Checks</span>
-                    <span className="font-mono font-bold text-emerald-500">{atsBreakdown.formattingScore}%</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Actions Panel */}
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2.5">
             <Button 
               onClick={handleDownloadResume} 
               disabled={downloadingResume} 
-              className="flex-1 h-9 text-xs gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow shadow-indigo-500/20"
+              size="sm"
+              className="h-8 text-[11px] font-bold gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow shadow-indigo-500/20"
             >
               {downloadingResume ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              Resume PDF
+              Download PDF
             </Button>
             <Button 
               variant="outline" 
               onClick={handleDownloadReport} 
               disabled={downloadingReport} 
-              className="flex-1 h-9 text-xs gap-1.5"
+              size="sm"
+              className="h-8 text-[11px] font-bold gap-1.5"
             >
               {downloadingReport ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileCheck2 className="h-3.5 w-3.5" />}
               ATS Report
             </Button>
+            <Separator orientation="vertical" className="h-6 bg-border" />
+            <Button variant="outline" size="sm" onClick={reset} className="h-8 text-[11px] font-bold gap-1 px-2.5">
+              <RefreshCw className="h-3 w-3" /> Start Over
+            </Button>
           </div>
+        </div>
+
+        {/* Two Column Layout Container */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+          
+          {/* LEFT COLUMN: Collaborative AI Suggestions Workspace */}
+          <div className="w-full lg:w-[480px] shrink-0 border-r border-border h-full flex flex-col overflow-y-auto bg-background/95 p-5 space-y-5">
+            
+            {/* Header Row */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold tracking-tight text-foreground">AI Collaborative Workspace</h2>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Approve, reject, or customize improvements in real-time</p>
+              </div>
+            </div>
+
+            <Separator className="bg-border/40" />
+
+            {/* Scoring Assessment Overview */}
+            <div className="flex gap-4 items-center bg-accent/30 rounded-xl p-4 border border-border/40">
+              <ScoreRing score={liveAtsScore} />
+              <div className="flex-1 space-y-1.5 text-xs">
+                <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-wider">Match Overview</p>
+                {atsBreakdown && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span>Keywords Match</span>
+                      <span className="font-mono font-bold text-indigo-500">{atsBreakdown.keywordScore}%</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span>Bullet Quality</span>
+                      <span className="font-mono font-bold text-violet-500">{atsBreakdown.bulletQuality}%</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span>Formatting Checks</span>
+                      <span className="font-mono font-bold text-emerald-500">{atsBreakdown.formattingScore}%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
           {/* Main Controls Tabs */}
           <Tabs defaultValue="suggestions" className="w-full flex-1 flex flex-col min-h-0">
@@ -618,12 +680,61 @@ export default function TailorPage() {
         </div>
 
         {/* RIGHT COLUMN: Interactive A4-Styled Live Resume Canvas */}
-        <div className="flex-1 h-full overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-6 flex justify-center items-start border-t lg:border-t-0 select-none">
+        <div id="resume-preview-container" className="flex-1 h-full overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-6 flex justify-center items-start border-t lg:border-t-0 select-none relative">
           <div className="w-full max-w-[800px] py-4 transition-transform duration-300">
             <ResumePreview data={liveTailoredData} templateId={activeTemp} />
           </div>
         </div>
 
+        {/* Floating Bottom Action Toolbar */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 border border-border/80 shadow-2xl rounded-full px-6 py-2.5 flex items-center gap-6 z-50">
+          <button
+            onClick={() => {
+              acceptAllChanges();
+            }}
+            className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-350 transition-colors cursor-pointer select-none border-none bg-transparent"
+          >
+            <Check className="h-4 w-4" /> Accept All Changes
+          </button>
+          
+          <span className="w-[1px] h-4 bg-border" />
+          
+          <button
+            onClick={() => {
+              resetChanges();
+            }}
+            className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer select-none border-none bg-transparent"
+          >
+            Reset Changes
+          </button>
+          
+          <span className="w-[1px] h-4 bg-border" />
+          
+          <button
+            onClick={() => {
+              const previewEl = document.getElementById('resume-preview-container');
+              if (previewEl) {
+                previewEl.scrollIntoView({ behavior: 'smooth' });
+              }
+              toast.info('Scrolling to Live Preview Canvas');
+            }}
+            className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer select-none border-none bg-transparent"
+          >
+            Preview
+          </button>
+          
+          <Button 
+            onClick={handleDownloadResume} 
+            disabled={downloadingResume} 
+            size="sm"
+            className="h-8 rounded-full text-xs font-black gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 px-4"
+          >
+            {downloadingResume ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+            Download
+          </Button>
+        </div>
+
+        </div>
       </div>
     );
   }
@@ -699,8 +810,7 @@ export default function TailorPage() {
                     placeholder="Paste the full, raw text content of your current resume..."
                     value={originalText}
                     onChange={(e) => setOriginalText(e.target.value)}
-                    rows={12}
-                    className="resize-none text-xs leading-relaxed focus-visible:ring-indigo-500"
+                    className="resize-none text-xs leading-relaxed focus-visible:ring-indigo-500 h-[220px] max-h-[220px] overflow-y-auto"
                   />
                 </TabsContent>
               </Tabs>
@@ -722,7 +832,7 @@ export default function TailorPage() {
                 placeholder="Paste the complete job description details (including job title, core requirements, technical stack keywords, and qualifications) to maximize match scoring..."
                 value={jdText}
                 onChange={(e) => setJdText(e.target.value)}
-                className="resize-none flex-1 min-h-[220px] text-xs leading-relaxed focus-visible:ring-violet-500"
+                className="resize-none flex-1 min-h-[220px] h-[220px] max-h-[220px] overflow-y-auto text-xs leading-relaxed focus-visible:ring-violet-500"
               />
               <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-2 font-mono">
                 <span>{jdText.length} characters</span>
