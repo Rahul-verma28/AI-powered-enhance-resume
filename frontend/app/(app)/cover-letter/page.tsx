@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Mail, Sparkles, Copy, Download, FileText, CheckCircle2, Loader2,
-  RefreshCw, History, FileEdit, Trash2, ArrowRight, BookOpen, AlertCircle
+  RefreshCw, History, FileEdit, Trash2, ArrowRight, BookOpen, AlertCircle,
+  Upload, Check, X
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { coverLetterApi, resumeApi } from '@/lib/api';
 
 const tones = [
@@ -38,12 +40,55 @@ export default function CoverLetterPage() {
   const [standaloneTitle, setStandaloneTitle] = useState('');
   const [standaloneJd, setStandaloneJd] = useState('');
   const [standaloneResume, setStandaloneResume] = useState('');
+  const [standaloneInputMode, setStandaloneInputMode] = useState<'upload' | 'paste'>('upload');
+  const [standaloneResumeFile, setStandaloneResumeFile] = useState<File | null>(null);
+  const [parsingStandalone, setParsingStandalone] = useState(false);
 
   // Active Draft
   const [activeLetter, setActiveLetter] = useState<any | null>(null);
   const [activeContent, setActiveContent] = useState('');
+  const [tempContent, setTempContent] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
+
+  const handleStandaloneFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processStandaloneResumeFile(file);
+  }, []);
+
+  const handleStandaloneDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && (file.type === 'application/pdf' || file.name.endsWith('.docx'))) {
+      await processStandaloneResumeFile(file);
+    } else {
+      toast.error('Please drop a valid text-based PDF or DOCX file');
+    }
+  }, []);
+
+  const processStandaloneResumeFile = async (file: File) => {
+    setStandaloneResumeFile(file);
+    setParsingStandalone(true);
+    const toastId = toast.loading(`Parsing ${file.name}...`);
+    try {
+      const uploadResult: any = await resumeApi.upload(file);
+      const data = uploadResult?.data || uploadResult;
+      const parsedText = data?.originalText || '';
+      if (!parsedText) {
+        throw new Error('Failed to extract text. Please switch to Paste mode instead.');
+      }
+      setStandaloneResume(parsedText);
+      toast.success(`${file.name} successfully parsed!`, { id: toastId });
+    } catch (err: any) {
+      console.error('[Standalone Upload] Error:', err);
+      toast.error(err.message || 'Failed to parse resume file', { id: toastId });
+      setStandaloneResumeFile(null);
+    } finally {
+      setParsingStandalone(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -67,6 +112,8 @@ export default function CoverLetterPage() {
         if (lettersList.length > 0 && !activeLetter) {
           setActiveLetter(lettersList[0]);
           setActiveContent(lettersList[0].content);
+          setTempContent(lettersList[0].content);
+          setIsEditing(false);
         }
       }
     } catch (err) {
@@ -141,6 +188,8 @@ export default function CoverLetterPage() {
       setCoverLetters(prev => [newLetter, ...prev]);
       setActiveLetter(newLetter);
       setActiveContent(newLetter.content);
+      setTempContent(newLetter.content);
+      setIsEditing(false);
       
       // Refresh historical lists
       fetchData();
@@ -156,20 +205,23 @@ export default function CoverLetterPage() {
   const handleSelectLetter = (letter: any) => {
     setActiveLetter(letter);
     setActiveContent(letter.content);
+    setTempContent(letter.content);
+    setIsEditing(false);
     toast.success(`Loaded letter for ${letter.company || 'Job'}`);
   };
 
-  const handleUpdateContent = async (val: string) => {
-    setActiveContent(val);
+  const handleSaveChanges = async () => {
     if (!activeLetter) return;
-    
     setSavingEdit(true);
     try {
-      await coverLetterApi.update(activeLetter._id, val);
-      // Immutably update state
-      setCoverLetters(prev => prev.map(l => l._id === activeLetter._id ? { ...l, content: val } : l));
+      await coverLetterApi.update(activeLetter._id, tempContent);
+      setActiveContent(tempContent);
+      setCoverLetters(prev => prev.map(l => l._id === activeLetter._id ? { ...l, content: tempContent } : l));
+      setIsEditing(false);
+      toast.success('Cover letter saved successfully!');
     } catch (err) {
       console.error(err);
+      toast.error('Failed to save cover letter updates');
     } finally {
       setSavingEdit(false);
     }
@@ -310,6 +362,7 @@ export default function CoverLetterPage() {
                                     ? JSON.stringify(resume.tailoredData, null, 2)
                                     : resume.originalText;
                                 setStandaloneResume(text);
+                                setStandaloneResumeFile(null); // Reset file indicator
                                 toast.success('Successfully imported background details!');
                               }
                             } catch (err) {
@@ -359,13 +412,73 @@ export default function CoverLetterPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-bold text-muted-foreground">Paste Your Background/Resume Details *</label>
-                    <Textarea 
-                      placeholder="Paste your active experience bullet details or bio..." 
-                      value={standaloneResume} 
-                      onChange={(e) => setStandaloneResume(e.target.value)}
-                      className="text-xs resize-none h-[120px] max-h-[120px] overflow-y-auto text-foreground bg-background"
-                    />
+                    <label className="mb-1 block text-[10px] font-bold text-muted-foreground">Your Original Resume *</label>
+                    <Tabs value={standaloneInputMode} onValueChange={(v) => setStandaloneInputMode(v as 'upload' | 'paste')}>
+                      <TabsList className="grid w-full grid-cols-2 h-7 text-[10px]">
+                        <TabsTrigger value="upload" className="gap-1"><Upload className="h-3 w-3" /> Upload File</TabsTrigger>
+                        <TabsTrigger value="paste" className="gap-1"><FileText className="h-3 w-3" /> Paste Text</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="upload" className="mt-2">
+                        {standaloneResumeFile ? (
+                          <div className="flex items-center justify-between rounded-lg border border-emerald-100 dark:border-emerald-950/30 bg-emerald-50/5 p-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 items-center justify-center rounded bg-emerald-50 dark:bg-emerald-950 border border-emerald-100 dark:border-emerald-900">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              </div>
+                              <div className="text-left text-[10px] max-w-[130px]">
+                                <p className="font-bold text-gray-800 dark:text-gray-250 truncate">{standaloneResumeFile.name}</p>
+                                <p className="text-[8px] text-muted-foreground">{(standaloneResumeFile.size / 1024).toFixed(1)} KB</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setStandaloneResumeFile(null);
+                                setStandaloneResume('');
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={handleStandaloneDrop}
+                            className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 px-4 py-6 text-center transition-all hover:border-indigo-400 hover:bg-indigo-50/5 cursor-pointer relative"
+                          >
+                            <input
+                              type="file"
+                              accept=".pdf,.docx"
+                              onChange={handleStandaloneFileChange}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              disabled={parsingStandalone}
+                            />
+                            {parsingStandalone ? (
+                              <>
+                                <Loader2 className="mb-1 h-4 w-4 animate-spin text-indigo-500" />
+                                <p className="text-[9px] font-bold text-indigo-500">Extracting details...</p>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="mb-1.5 h-4 w-4 text-muted-foreground/50" />
+                                <p className="text-[10px] font-bold">Drag & drop or click</p>
+                                <p className="text-[8px] text-muted-foreground">PDF, DOCX standard (max 10MB)</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </TabsContent>
+                      
+                      <TabsContent value="paste" className="mt-2">
+                        <Textarea 
+                          placeholder="Paste your active experience bullet details or bio..." 
+                          value={standaloneResume} 
+                          onChange={(e) => setStandaloneResume(e.target.value)}
+                          className="text-xs resize-none h-[100px] max-h-[100px] overflow-y-auto text-foreground bg-background"
+                        />
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 </div>
               )}
@@ -457,20 +570,55 @@ export default function CoverLetterPage() {
                 <BookOpen className="h-4 w-4 text-indigo-500" /> Letter Editor Sheet
               </CardTitle>
               {activeContent && (
-                <div className="flex gap-1">
-                  <Button variant="outline" size="sm" onClick={handleCopy} className="h-7 text-[10px] gap-1 px-2">
-                    <Copy className="h-3 w-3" /> Copy
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleDownload} 
-                    disabled={downloadingPDF}
-                    className="h-7 text-[10px] gap-1 px-2.5"
-                  >
-                    {downloadingPDF ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
-                    PDF Letter
-                  </Button>
+                <div className="flex gap-1.5 items-center">
+                  {isEditing ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setTempContent(activeContent);
+                          setIsEditing(false);
+                        }}
+                        className="h-7 text-[10px] gap-1 px-2 hover:bg-red-50 hover:text-red-650 transition-colors"
+                      >
+                        <X className="h-3 w-3" /> Cancel
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={handleSaveChanges} 
+                        disabled={savingEdit}
+                        className="h-7 text-[10px] gap-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                      >
+                        {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        Save Changes
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setIsEditing(true)} 
+                        className="h-7 text-[10px] gap-1 px-2.5 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                      >
+                        <FileEdit className="h-3 w-3" /> Edit Draft
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleCopy} className="h-7 text-[10px] gap-1 px-2">
+                        <Copy className="h-3 w-3" /> Copy
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleDownload} 
+                        disabled={downloadingPDF}
+                        className="h-7 text-[10px] gap-1 px-2.5"
+                      >
+                        {downloadingPDF ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                        PDF Letter
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </CardHeader>
@@ -481,19 +629,28 @@ export default function CoverLetterPage() {
                     
                     {/* Header Details */}
                     {activeLetter && (
-                      <div className="border-b pb-3 border-gray-150 mb-3 text-[10px] font-sans text-gray-500 space-y-0.5">
-                        <p><strong>Subject:</strong> {activeLetter.subject}</p>
-                        <p><strong>Date:</strong> {new Date(activeLetter.createdAt).toLocaleDateString()}</p>
-                        {savingEdit && <span className="text-[9px] text-indigo-500 font-extrabold uppercase animate-pulse absolute top-4 right-4">Saving...</span>}
+                      <div className="border-b pb-3 border-gray-150 mb-3 text-[10px] font-sans text-gray-500 flex justify-between items-center select-none">
+                        <div className="space-y-0.5">
+                          <p><strong>Subject:</strong> {activeLetter.subject}</p>
+                          <p><strong>Date:</strong> {new Date(activeLetter.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        {savingEdit && <span className="text-[9px] text-indigo-500 font-extrabold uppercase animate-pulse">Saving...</span>}
                       </div>
                     )}
 
                     {/* Rich text area resembling actual printed paper */}
-                    <textarea
-                      value={activeContent}
-                      onChange={(e) => handleUpdateContent(e.target.value)}
-                      className="w-full min-h-[420px] focus:outline-none border-none resize-none font-serif text-[11px] leading-relaxed text-gray-800 bg-transparent select-text"
-                    />
+                    {isEditing ? (
+                      <textarea
+                        value={tempContent}
+                        onChange={(e) => setTempContent(e.target.value)}
+                        className="w-full min-h-[420px] focus:outline-none border border-indigo-100/50 p-3 rounded-md resize-none font-serif text-[11px] leading-relaxed text-gray-800 bg-white select-text focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="w-full min-h-[420px] font-serif text-[11px] leading-relaxed text-gray-800 whitespace-pre-wrap select-text">
+                        {activeContent}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

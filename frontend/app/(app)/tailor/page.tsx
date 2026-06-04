@@ -33,6 +33,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/lib/store';
 import { resumeApi } from '@/lib/api';
 import { ResumePreview } from '@/components/ui/templates';
@@ -142,8 +144,8 @@ export default function TailorPage() {
   const [hoverTemplate, setHoverTemplate] = useState<string | null>(null);
   const [editingChangeId, setEditingChangeId] = useState<string | null>(null);
   const [manualEditText, setManualEditText] = useState('');
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editedTitle, setEditedTitle] = useState('');
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [downloadTitle, setDownloadTitle] = useState('');
 
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -286,10 +288,28 @@ export default function TailorPage() {
     }
   };
 
-  const handleDownloadResume = async () => {
+  const triggerDownloadResume = () => {
     if (!resumeId) return;
+    setDownloadTitle(title || 'Optimized Resume');
+    setIsDownloadModalOpen(true);
+  };
+
+  const handleDownloadConfirm = async () => {
+    const trimmedTitle = downloadTitle.trim();
+    if (!trimmedTitle) {
+      toast.error('Resume filename title cannot be empty');
+      return;
+    }
+    
+    setIsDownloadModalOpen(false);
     setDownloadingResume(true);
     try {
+      // 1. Update title in backend database
+      await resumeApi.patch(resumeId, { title: trimmedTitle });
+      // 2. Sync to local state store
+      updateTitle(trimmedTitle);
+      
+      // 3. Request download
       const activeTemp = hoverTemplate || selectedTemplate;
       const res: any = await resumeApi.download(resumeId, activeTemp);
       
@@ -297,15 +317,15 @@ export default function TailorPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      const safeTitle = (title || 'Optimized_Resume').replace(/[^a-z0-9_-]/gi, '_');
+      const safeTitle = trimmedTitle.replace(/[^a-z0-9_-]/gi, '_');
       link.setAttribute('download', `${safeTitle}_${activeTemp}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       toast.success('Optimized PDF successfully compiled and downloaded!');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error('Puppeteer generation failed. Verify server setup.');
+      toast.error(err.message || 'Puppeteer generation failed. Verify server setup.');
     } finally {
       setDownloadingResume(false);
     }
@@ -356,57 +376,20 @@ export default function TailorPage() {
   if (pipelineStep === 'done' && liveTailoredData) {
     const activeTemp = hoverTemplate || selectedTemplate;
 
-    const handleStartEditTitle = () => {
-      setEditedTitle(title || 'Untitled Tailored Resume');
-      setIsEditingTitle(true);
-    };
-
-    const handleSaveTitle = () => {
-      if (editedTitle.trim()) {
-        updateTitle(editedTitle.trim());
-      }
-      setIsEditingTitle(false);
-    };
-
     return (
       <div className="flex flex-col h-[calc(100vh-4.5rem)] overflow-hidden -m-6 sm:-m-8 bg-background">
         
         {/* Workspace Header Bar */}
         <div className="w-full border-b border-border bg-card px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0 shadow-sm z-10">
           <div className="flex items-center gap-2">
-            {isEditingTitle ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveTitle();
-                    if (e.key === 'Escape') setIsEditingTitle(false);
-                  }}
-                  className="px-3 py-1 text-sm font-semibold bg-background border border-indigo-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-xs sm:max-w-md text-foreground"
-                  autoFocus
-                />
-                <Button size="icon" variant="ghost" onClick={handleSaveTitle} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
-                  <Check className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => setIsEditingTitle(false)} className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50">
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 group cursor-pointer" onClick={handleStartEditTitle}>
-                <h1 className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
-                  {title || 'Untitled Position'}
-                </h1>
-                <Edit2 className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            )}
+            <h1 className="text-lg font-black tracking-tight text-foreground flex items-center gap-2 select-none">
+              {title || 'Untitled Position'}
+            </h1>
           </div>
 
           <div className="flex items-center gap-2.5">
             <Button 
-              onClick={handleDownloadResume} 
+              onClick={triggerDownloadResume} 
               disabled={downloadingResume} 
               size="sm"
               className="h-8 text-[11px] font-bold gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow shadow-indigo-500/20"
@@ -724,7 +707,7 @@ export default function TailorPage() {
           </button>
           
           <Button 
-            onClick={handleDownloadResume} 
+            onClick={triggerDownloadResume} 
             disabled={downloadingResume} 
             size="sm"
             className="h-8 rounded-full text-xs font-black gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 px-4"
@@ -734,6 +717,42 @@ export default function TailorPage() {
           </Button>
         </div>
 
+        {/* Rename & Download Modal */}
+        <Dialog open={isDownloadModalOpen} onOpenChange={setIsDownloadModalOpen}>
+          <DialogContent className="max-w-md p-6">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-black uppercase tracking-wider text-indigo-600 flex items-center gap-2">
+                <Download className="h-4.5 w-4.5" /> Download Optimized Resume
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-1">
+                Give your tailored resume a professional title. This name will be stored in your optimization history and used as the downloaded PDF filename.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <label className="text-[10px] font-extrabold uppercase text-gray-500 tracking-wider mb-2 block">
+                Resume Title Name *
+              </label>
+              <Input
+                value={downloadTitle}
+                onChange={(e) => setDownloadTitle(e.target.value)}
+                placeholder="e.g. Google - Senior Frontend Engineer"
+                className="text-xs focus-visible:ring-indigo-500"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleDownloadConfirm();
+                }}
+              />
+            </div>
+            <DialogFooter className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setIsDownloadModalOpen(false)} className="h-8 text-xs">
+                Cancel
+              </Button>
+              <Button onClick={handleDownloadConfirm} disabled={!downloadTitle.trim()} className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4">
+                Confirm & Download
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+ 
         </div>
       </div>
     );

@@ -6,6 +6,34 @@ import {
 import type { CoverLetterTone, CoverLetterResult } from '../types';
 
 /**
+ * Clean up metadata headers (like Application for... or For:...) that the model
+ * might generate at the beginning of the cover letter.
+ */
+function cleanCoverLetterContent(content: string): string {
+  const lines = content.split('\n');
+  let startIndex = 0;
+  
+  while (startIndex < lines.length) {
+    const line = lines[startIndex].trim().toLowerCase();
+    if (
+      line === '' ||
+      line.startsWith('application for') ||
+      line.startsWith('for:') ||
+      line.startsWith('subject:') ||
+      line.startsWith('to:') ||
+      line.startsWith('date:') ||
+      line.startsWith('re:')
+    ) {
+      startIndex++;
+    } else {
+      break;
+    }
+  }
+  
+  return lines.slice(startIndex).join('\n').trim();
+}
+
+/**
  * Cover Letter Generation Service.
  */
 export class CoverLetterGenerator {
@@ -29,7 +57,8 @@ export class CoverLetterGenerator {
       temperature: 0.5,
     });
 
-    const content = response.content.trim();
+    const rawContent = response.content.trim();
+    const content = cleanCoverLetterContent(rawContent);
     const subject = `Application for ${jobTitle}${company ? ` at ${company}` : ''}`;
 
     return {

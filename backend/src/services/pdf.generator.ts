@@ -242,8 +242,6 @@ export class PDFGenerator {
     jobTitle: string
   ): Promise<Buffer> {
     const safeContent = content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
-    const safeSubject = subject || (jobTitle ? `Application for ${jobTitle}` : 'Cover Letter');
-    const safeMeta = company ? `For: ${company}${jobTitle ? ` — ${jobTitle}` : ''}` : '';
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -252,17 +250,10 @@ export class PDFGenerator {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, 'Helvetica Neue', sans-serif; font-size: 11pt; line-height: 1.7; color: #1a1a1a; padding: 48px 56px; }
-    .header { margin-bottom: 32px; padding-bottom: 20px; border-bottom: 2px solid #2563eb; }
-    .subject { font-size: 14pt; font-weight: 600; color: #1e3a8a; margin-bottom: 6px; }
-    .meta { font-size: 10pt; color: #6b7280; }
     .body { font-size: 11pt; color: #374151; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="subject">${safeSubject}</div>
-    ${safeMeta ? `<div class="meta">${safeMeta}</div>` : ''}
-  </div>
   <div class="body">${safeContent}</div>
 </body>
 </html>`;

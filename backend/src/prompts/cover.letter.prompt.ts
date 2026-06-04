@@ -10,7 +10,8 @@ RULES:
 4. Include specific achievements from the resume that align with JD needs
 5. End with a clear call to action
 6. Never fabricate — only use information from the provided resume data
-7. Output ONLY the cover letter text — no JSON, no markdown headers`;
+7. Output ONLY the cover letter text — no JSON, no markdown headers
+8. Do NOT include any subject line, "Application for...", "For:...", or headers at the top. Start the response directly with the salutation "Dear Hiring Manager,".`;
 
 export type CoverLetterToneParam = 'professional' | 'confident' | 'concise' | 'friendly';
 
